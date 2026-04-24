@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetailAI - Demand Forecast & Insights</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/retailai.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Source+Sans+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .forecast-controls {
+            background: rgba(42,42,44,0.8);
+            border: 1px solid rgba(15,169,88,0.2);
+            border-radius: 12px;
+            padding: 1.8rem 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: flex-end;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+            min-width: 160px;
+        }
+        .control-group label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(242,242,242,0.55);
+            font-weight: 600;
+        }
+        .run-btn {
+            background: linear-gradient(135deg, #0FA958, #0D8847);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.72rem 2rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s;
+            white-space: nowrap;
+            font-family: 'Source Sans Pro', sans-serif;
+            height: 42px;
+        }
+        .run-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .run-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+        /* Result area */
+        #forecast-output { display: none; }
+        #error-msg {
+            display: none;
+            background: rgba(155,28,49,0.15);
+            border: 1px solid rgba(155,28,49,0.4);
+            border-radius: 10px;
+            padding: 1rem 1.4rem;
+            color: #e05a72;
+            margin-bottom: 1.5rem;
+        }
+        .loading-overlay {
+            display: none;
+            text-align: center;
+            padding: 3rem;
+            color: rgba(242,242,242,0.5);
+            font-size: 0.95rem;
+            letter-spacing: 0.04em;
+        }
+        .spinner {
+            width: 36px; height: 36px;
+            border: 3px solid rgba(15,169,88,0.2);
+            border-top-color: #10B960;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Metric cards */
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .metric-card {
+            background: rgba(42,42,44,0.8);
+            border: 1px solid rgba(15,169,88,0.15);
+            border-radius: 12px;
+            padding: 1.3rem 1.5rem;
+            transition: border-color 0.3s;
+        }
+        .metric-card:hover { border-color: rgba(15,169,88,0.4); }
+        .metric-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(242,242,242,0.5); margin-bottom: 0.4rem; }
+        .metric-value { font-family: 'DM Serif Display', serif; font-size: 1.7rem; color: #F2F2F2; line-height: 1.1; }
+        .metric-value.green { color: #10B960; }
+        .metric-value.warning { color: #F59E0B; }
+        .metric-value.critical { color: #e05a72; }
+        .metric-sub { font-size: 0.8rem; color: rgba(242,242,242,0.4); margin-top: 0.3rem; }
+
+        /* Chart card */
+        .chart-card {
+            background: rgba(42,42,44,0.8);
+            border: 1px solid rgba(15,169,88,0.15);
+            border-radius: 14px;
+            padding: 1.8rem 2rem;
+            margin-bottom: 2rem;
+        }
+        .chart-card-header { margin-bottom: 1.4rem; }
+        .chart-card-title { font-size: 1.05rem; font-weight: 600; color: #F2F2F2; }
+        .chart-card-sub { font-size: 0.83rem; color: rgba(242,242,242,0.45); margin-top: 0.2rem; }
+        .canvas-wrap { position: relative; height: 300px; }
+
+        /* Day table */
+        .day-table-wrap { overflow-x: auto; }
+        .day-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        .day-table th {
+            text-align: left;
+            padding: 0.6rem 1rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: rgba(242,242,242,0.45);
+            border-bottom: 1px solid rgba(242,242,242,0.08);
+        }
+        .day-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(242,242,242,0.05);
+            color: #F2F2F2;
+        }
+        .day-table tr:last-child td { border-bottom: none; }
+        .day-table tr:hover td { background: rgba(15,169,88,0.05); }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-high { background: rgba(155,28,49,0.2); color: #e05a72; }
+        .badge-med  { background: rgba(232,168,56,0.2); color: #F59E0B; }
+        .badge-low  { background: rgba(15,169,88,0.15); color: #10B960; }
+
+        /* Model pill */
+        .model-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(16,185,96,0.12);
+            border: 1px solid rgba(16,185,96,0.25);
+            border-radius: 20px;
+            padding: 0.25rem 0.9rem;
+            font-size: 0.8rem;
+            color: #10B960;
+            font-weight: 600;
+            margin-left: 0.8rem;
+            vertical-align: middle;
+        }
+        .model-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #0FA958;
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="logo">Retail<span>AI</span></div>
+        <div class="nav-links">
+            <a href="{{ url_for('home') }}">Dashboard</a>
+            <a href="{{ url_for('dashboard') }}">Inventory</a>
+            <a href="{{ url_for('analytics') }}">Analytics</a>
+            <a href="{{ url_for('forecasting_page') }}" class="active">Forecasting</a>
+            <div class="nav-divider"></div>
+            <a href="{{ url_for('settings') }}">Settings</a>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            <div class="user-avatar" title="{{ user }}">{{ initials }}</div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <div class="header-text">
+                <h1>Demand Forecast &amp; Insights</h1>
+                <p>Select a store and product to generate a 7-day AI-powered demand forecast</p>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="forecast-controls">
+            <div class="control-group">
+                <label>Store</label>
+                <select class="filter-select" id="store-select">
+                    {% for s in stores %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Product</label>
+                <select class="filter-select" id="product-select">
+                    {% for p in products %}
+                    <option value="{{ p }}">{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="run-btn" id="run-btn" onclick="runForecast()">
+                &#9654;&nbsp; Run Forecast
+            </button>
+        </div>
+
+        <!-- Error -->
+        <div id="error-msg"></div>
+
+        <!-- Loading -->
+        <div class="loading-overlay" id="loading">
+            <div class="spinner"></div>
+            Running AI forecast model…
+        </div>
+
+        <!-- Output (hidden until data arrives) -->
+        <div id="forecast-output">
+
+            <!-- KPI row -->
+            <div class="metric-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Model Used</div>
+                    <div class="metric-value green" id="kpi-model">—</div>
+                    <div class="metric-sub">Best fit selected automatically</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Total 7-Day Demand</div>
+                    <div class="metric-value" id="kpi-total">—</div>
+                    <div class="metric-sub">Forecasted units</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Avg Daily Demand</div>
+                    <div class="metric-value green" id="kpi-avg">—</div>
+                    <div class="metric-sub">Units / day</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Peak Day Demand</div>
+                    <div class="metric-value warning" id="kpi-peak">—</div>
+                    <div class="metric-sub" id="kpi-peak-day">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Demand Trend</div>
+                    <div class="metric-value" id="kpi-trend">—</div>
+                    <div class="metric-sub" id="kpi-trend-sub">vs Day 1</div>
+                </div>
+            </div>
+
+            <!-- Chart + Table -->
+            <div class="two-col">
+                <!-- Bar chart -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <div class="chart-card-title">
+                            7-Day Forecast
+                            <span class="model-pill"><span class="model-dot"></span><span id="pill-model">—</span></span>
+                        </div>
+                        <div class="chart-card-sub" id="chart-subtitle">Predicted units sold per day</div>
+                    </div>
+                    <div class="canvas-wrap">
+                        <canvas id="forecastChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Daily breakdown -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <div class="chart-card-title">Daily Breakdown</div>
+                        <div class="chart-card-sub">Day-by-day forecast with demand classification</div>
+                    </div>
+                    <div class="day-table-wrap">
+                        <table class="day-table">
+                            <thead>
+                                <tr>
+                                    <th>Day</th>
+                                    <th>Date</th>
+                                    <th>Units</th>
+                                    <th>Level</th>
+                                </tr>
+                            </thead>
+                            <tbody id="forecast-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Insights -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <div class="chart-card-title">AI Insights</div>
+                    <div class="chart-card-sub">Observations derived from forecast</div>
+                </div>
+                <div id="insights-container" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:1rem;"></div>
+            </div>
+
+        </div><!-- /forecast-output -->
+    </div>
+
+    <script>
+        let chartInstance = null;
+
+        function runForecast() {
+            const store   = document.getElementById('store-select').value;
+            const product = document.getElementById('product-select').value;
+
+            // Reset UI
+            document.getElementById('forecast-output').style.display = 'none';
+            document.getElementById('error-msg').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('run-btn').disabled = true;
+
+            fetch(`/forecast/${store}/${product}`)
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('run-btn').disabled = false;
+
+                    if (data.error) {
+                        showError(data.error);
+                        return;
+                    }
+                    renderForecast(data, store, product);
+                })
+                .catch(err => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('run-btn').disabled = false;
+                    showError('Network error: ' + err.message);
+                });
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = '⚠ ' + msg;
+            el.style.display = 'block';
+        }
+
+        function renderForecast(data, store, product) {
+            const forecast = data.Forecast.map(v => Math.max(0, Math.round(v * 10) / 10));
+            const model    = data.Best_Model;
+            const total    = forecast.reduce((a, b) => a + b, 0);
+            const avg      = total / forecast.length;
+            const peak     = Math.max(...forecast);
+            const peakIdx  = forecast.indexOf(peak);
+            const trendPct = ((forecast[forecast.length-1] - forecast[0]) / (forecast[0] || 1) * 100).toFixed(1);
+
+            // Build date labels starting tomorrow
+            const today = new Date();
+            const labels = forecast.map((_, i) => {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i + 1);
+                return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+            });
+
+            // KPIs
+            document.getElementById('kpi-model').textContent   = model;
+            document.getElementById('kpi-total').textContent   = Math.round(total).toLocaleString();
+            document.getElementById('kpi-avg').textContent     = avg.toFixed(1);
+            document.getElementById('kpi-peak').textContent    = Math.round(peak).toLocaleString();
+            document.getElementById('kpi-peak-day').textContent = 'On ' + labels[peakIdx];
+            document.getElementById('pill-model').textContent  = model;
+            document.getElementById('chart-subtitle').textContent =
+                `${store} · ${product} — Predicted units sold per day`;
+
+            const trendEl = document.getElementById('kpi-trend');
+            const absT    = Math.abs(trendPct);
+            if (trendPct > 0) {
+                trendEl.textContent = '↑ +' + absT + '%';
+                trendEl.className = 'metric-value green';
+            } else if (trendPct < 0) {
+                trendEl.textContent = '↓ ' + trendPct + '%';
+                trendEl.className = 'metric-value warning';
+            } else {
+                trendEl.textContent = '→ Flat';
+                trendEl.className = 'metric-value';
+            }
+
+            // Chart
+            const avgLine = new Array(forecast.length).fill(parseFloat(avg.toFixed(1)));
+            const barColors = forecast.map(v =>
+                v >= peak * 0.9 ? 'rgba(245,158,11,0.9)' : 'rgba(16,185,96,0.75)'
+            );
+
+            if (chartInstance) chartInstance.destroy();
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Forecasted Units',
+                            data: forecast,
+                            backgroundColor: barColors,
+                            borderRadius: 5,
+                            order: 2
+                        },
+                        {
+                            type: 'line',
+                            label: 'Average',
+                            data: avgLine,
+                            borderColor: 'rgba(242,242,242,0.35)',
+                            borderDash: [5, 4],
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            fill: false,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: 'rgba(242,242,242,0.6)', font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ' ' + ctx.parsed.y.toFixed(1) + ' units'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: 'rgba(242,242,242,0.55)', font: { size: 11 } },
+                            grid:  { color: 'rgba(242,242,242,0.04)' }
+                        },
+                        y: {
+                            ticks: { color: 'rgba(242,242,242,0.55)', font: { size: 11 } },
+                            grid:  { color: 'rgba(242,242,242,0.07)' },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+
+            // Table
+            const demandMedian = avg;
+            const tbody = document.getElementById('forecast-table-body');
+            tbody.innerHTML = '';
+            forecast.forEach((val, i) => {
+                const level = val >= peak * 0.9
+                    ? '<span class="badge badge-high">High</span>'
+                    : val >= demandMedian
+                    ? '<span class="badge badge-med">Medium</span>'
+                    : '<span class="badge badge-low">Low</span>';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>Day ${i+1}</td>
+                        <td>${labels[i]}</td>
+                        <td><strong>${Math.round(val).toLocaleString()}</strong></td>
+                        <td>${level}</td>
+                    </tr>`;
+            });
+
+            // Insights
+            const insights = buildInsights(forecast, labels, peak, avg, model, trendPct, store, product);
+            const ic = document.getElementById('insights-container');
+            ic.innerHTML = insights.map(ins => `
+                <div class="insight-item ${ins.type}">
+                    <div class="insight-title">${ins.title}</div>
+                    <div class="insight-desc">${ins.desc}</div>
+                </div>`).join('');
+
+            document.getElementById('forecast-output').style.display = 'block';
+        }
+
+        function buildInsights(forecast, labels, peak, avg, model, trendPct, store, product) {
+            const insights = [];
+
+            // Model selection insight
+            insights.push({
+                type: '',
+                title: `Model: ${model} Selected`,
+                desc: `${model} achieved the lowest MAE on 30-day holdout and was automatically selected for ${store} × ${product}.`
+            });
+
+            // Trend
+            if (parseFloat(trendPct) > 5) {
+                insights.push({
+                    type: 'warning',
+                    title: 'Upward Demand Trend',
+                    desc: `Demand is projected to rise ${trendPct}% by Day 7. Consider pre-positioning additional stock early in the week.`
+                });
+            } else if (parseFloat(trendPct) < -5) {
+                insights.push({
+                    type: '',
+                    title: 'Declining Demand Trend',
+                    desc: `Demand is expected to drop ${Math.abs(trendPct)}% over the forecast window. Avoid over-ordering to prevent excess inventory.`
+                });
+            } else {
+                insights.push({
+                    type: '',
+                    title: 'Stable Demand Outlook',
+                    desc: `Demand remains relatively flat (${trendPct}% change) across the 7-day window — consistent replenishment schedule recommended.`
+                });
+            }
+
+            // Peak warning
+            const peakIdx = forecast.indexOf(peak);
+            insights.push({
+                type: peak > avg * 1.2 ? 'warning' : '',
+                title: 'Peak Demand Day',
+                desc: `Highest forecasted demand of ${Math.round(peak).toLocaleString()} units is on ${labels[peakIdx]} (Day ${peakIdx+1}). Ensure stock is replenished before this date.`
+            });
+
+            // Variability
+            const std = Math.sqrt(forecast.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / forecast.length);
+            const cv  = (std / avg * 100).toFixed(1);
+            insights.push({
+                type: cv > 15 ? 'warning' : '',
+                title: cv > 15 ? 'High Demand Variability' : 'Low Demand Variability',
+                desc: `Coefficient of variation is ${cv}%. ${cv > 15 ? 'Large day-to-day swings detected — increase safety stock buffer.' : 'Demand is consistent — standard safety stock levels are sufficient.'}`
+            });
+
+            return insights;
+        }
+    </script>
+</body>
+</html>

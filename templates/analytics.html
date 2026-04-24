@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RetailAI — Analytics</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/retailai.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<nav class="nav">
+  <div class="logo">Retail<span>AI</span></div>
+  <div class="nav-links">
+    <a href="{{ url_for('home') }}">Dashboard</a>
+    <a href="{{ url_for('dashboard') }}">Inventory</a>
+    <a href="{{ url_for('analytics') }}" class="active">Analytics</a>
+    <a href="{{ url_for('forecasting_page') }}">Forecasting</a>
+    <div class="nav-divider"></div>
+    <a href="{{ url_for('settings') }}">Settings</a>
+    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    <div class="user-avatar" title="{{ user }}">{{ initials }}</div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Analytics</h1>
+    <p>Store-level performance breakdown · Fast pandas-computed · Based on real inventory dataset</p>
+  </div>
+
+  <!-- Store KPI Cards -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.6rem;">
+    {% for store, info in store_status.items() %}
+    <div class="kpi-card" style="padding:1.2rem 1.4rem;">
+      <div class="kpi-label">{{ store }} · {{ info.region }}</div>
+      <div class="kpi-value" style="font-size:1.5rem;color:{% if info.critical > 0 %}var(--red){% elif info.low > 0 %}var(--amber){% else %}var(--green){% endif %}">
+        {{ info.total }}
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.6rem;">{{ info.avg_daily }} units/day avg</div>
+      <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+        <span class="badge badge-red" style="font-size:0.62rem">{{ info.critical }} Crit</span>
+        <span class="badge badge-amber" style="font-size:0.62rem">{{ info.low }} Low</span>
+        <span class="badge badge-green" style="font-size:0.62rem">{{ info.optimal }} OK</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Charts Row -->
+  <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:1.2rem;margin-bottom:1.2rem;">
+    <!-- Stacked Bar -->
+    <div class="card">
+      <div class="card-title">Sales by Store &amp; Category</div>
+      <div class="card-sub">Stacked total units sold per store · All-time · All categories</div>
+      <div class="canvas-wrap" style="height:300px"><canvas id="stackedChart"></canvas></div>
+    </div>
+    <!-- Donut -->
+    <div class="card">
+      <div class="card-title">Inventory Status Distribution</div>
+      <div class="card-sub">Product count by stock status across all 5 stores</div>
+      <div class="canvas-wrap" style="height:300px"><canvas id="statusChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Store Health Table -->
+  <div class="card">
+    <div class="card-title">Store-Level Inventory Health</div>
+    <div class="card-sub">Velocity-aware status · Based on current stock ÷ average daily sales rate</div>
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Store</th><th>Region</th><th>Total Sold</th>
+          <th>Avg Daily</th><th>Critical SKUs</th><th>Low SKUs</th><th>Optimal SKUs</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for store, info in store_status.items() %}
+        <tr>
+          <td><strong>{{ store }}</strong></td>
+          <td style="color:var(--text-muted)">{{ info.region }}</td>
+          <td>{{ info.total }}</td>
+          <td>{{ info.avg_daily }}/day</td>
+          <td style="color:var(--red);font-weight:600">{{ info.critical }}</td>
+          <td style="color:var(--amber);font-weight:600">{{ info.low }}</td>
+          <td style="color:var(--green);font-weight:600">{{ info.optimal }}</td>
+          <td>
+            <span class="badge {% if info.critical > 0 %}badge-red{% elif info.low > 0 %}badge-amber{% else %}badge-green{% endif %}">
+              {% if info.critical > 0 %}Critical{% elif info.low > 0 %}Low Stock{% else %}Optimal{% endif %}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  Chart.defaults.color = 'rgba(232,234,240,0.45)';
+  Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+  Chart.defaults.font.size = 11;
+  const G = 'rgba(255,255,255,0.04)';
+
+  const storeLabels = {{ stores_list | tojson }};
+  const categories  = {{ categories  | tojson }};
+  const catSeries   = {{ cat_series  | tojson }};
+
+  // Sophisticated palette — no muddy colours
+  const palette = [
+    { bar:'rgba(16,185,96,0.85)',  border:'#10B960' },  // green
+    { bar:'rgba(59,130,246,0.85)', border:'#3B82F6' },  // blue
+    { bar:'rgba(245,158,11,0.85)', border:'#F59E0B' },  // amber
+    { bar:'rgba(139,92,246,0.85)', border:'#8B5CF6' },  // violet
+    { bar:'rgba(20,184,166,0.85)', border:'#14B8A6' },  // teal
+  ];
+
+  new Chart(document.getElementById('stackedChart'), {
+    type:'bar',
+    data:{
+      labels: storeLabels,
+      datasets: categories.map((cat,i)=>({
+        label: cat,
+        data: catSeries[cat],
+        backgroundColor: palette[i].bar,
+        borderColor: palette[i].border,
+        borderWidth: 0,
+        borderRadius: i === categories.length-1 ? 5 : 0,
+      }))
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{ padding:14, boxWidth:11, font:{size:11},
+            generateLabels: chart => chart.data.datasets.map((ds,i)=>({
+              text: ds.label, fillStyle: palette[i].bar,
+              strokeStyle: palette[i].border, lineWidth:0, hidden:false, index:i
+            }))
+          }
+        },
+        tooltip:{ callbacks:{ label: ctx=>` ${ctx.dataset.label}: ${(ctx.parsed.y/1000).toFixed(0)}K units` } }
+      },
+      scales:{
+        x:{ stacked:true, grid:{color:'transparent'}, ticks:{font:{weight:'600'}} },
+        y:{ stacked:true, grid:{color:G}, ticks:{callback:v=>(v/1000000).toFixed(1)+'M'} }
+      }
+    }
+  });
+
+  // Status donut — three distinct professional colours
+  const totalCrit   = {{ store_status.values() | map(attribute='critical') | sum }};
+  const totalLow    = {{ store_status.values() | map(attribute='low')      | sum }};
+  const totalOpt    = {{ store_status.values() | map(attribute='optimal')  | sum }};
+
+  new Chart(document.getElementById('statusChart'),{
+    type:'doughnut',
+    data:{
+      labels:['Critical','Low Stock','Optimal'],
+      datasets:[{
+        data:[totalCrit, totalLow, totalOpt],
+        backgroundColor:['rgba(239,68,68,0.9)','rgba(245,158,11,0.9)','rgba(16,185,96,0.9)'],
+        borderColor:['#EF4444','#F59E0B','#10B960'],
+        borderWidth:2,
+        hoverOffset:6,
+        spacing:2,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      cutout:'60%',
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{padding:16, boxWidth:12, font:{size:11.5}}
+        },
+        tooltip:{
+          callbacks:{
+            label: ctx=>{
+              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+              const pct = ((ctx.parsed/total)*100).toFixed(1);
+              return ` ${ctx.label}: ${ctx.parsed} products (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+</script>
+</body>
+</html>

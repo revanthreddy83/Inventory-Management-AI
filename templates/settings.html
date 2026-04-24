@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RetailAI — Settings</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/retailai.css') }}">
+  <style>
+    .settings-layout { display:grid; grid-template-columns:220px 1fr; gap:1.5rem; align-items:start; }
+    @media(max-width:800px){ .settings-layout{ grid-template-columns:1fr; } }
+
+    .sidebar {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius-lg); overflow:hidden; position:sticky; top:80px;
+    }
+    .sidebar-section-label {
+      font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em;
+      color:var(--text-dim); font-weight:700;
+      padding:1rem 1.1rem 0.4rem;
+    }
+    .sidebar-item {
+      display:flex; align-items:center; gap:0.7rem;
+      padding:0.7rem 1.1rem;
+      font-size:0.855rem; font-weight:500;
+      color:var(--text-muted); cursor:pointer;
+      border-left:2px solid transparent;
+      transition:all 0.18s;
+    }
+    .sidebar-item svg { width:16px; height:16px; flex-shrink:0; opacity:0.7; }
+    .sidebar-item:hover { color:var(--text); background:rgba(255,255,255,0.03); }
+    .sidebar-item.active { color:var(--green); border-left-color:var(--green); background:var(--green-dim); }
+    .sidebar-item.active svg { opacity:1; }
+    .sidebar-sep { height:1px; background:var(--border); margin:0.4rem 0; }
+    .sidebar-danger { color:var(--text-muted); }
+    .sidebar-danger:hover { color:var(--red) !important; background:var(--red-dim) !important; }
+
+    .panel { display:none; }
+    .panel.active { display:block; }
+
+    .panel-card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius-lg); padding:1.8rem 2rem;
+      margin-bottom:1.2rem;
+    }
+    .panel-card:hover { border-color:var(--border-hi); }
+    .panel-title { font-size:1rem; font-weight:700; color:var(--text); margin-bottom:0.2rem; }
+    .panel-sub   { font-size:0.8rem; color:var(--text-muted); margin-bottom:1.6rem; }
+
+    .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; margin-bottom:1.1rem; }
+    @media(max-width:600px){ .field-grid{ grid-template-columns:1fr; } }
+    .field label { display:block; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); font-weight:700; margin-bottom:0.45rem; }
+    .field input[readonly] { opacity:0.45; cursor:not-allowed; }
+
+    .toggle-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0.9rem 0; border-bottom:1px solid rgba(255,255,255,0.04);
+    }
+    .toggle-row:last-child { border-bottom:none; }
+    .tr-label { font-size:0.875rem; font-weight:500; color:var(--text); }
+    .tr-sub   { font-size:0.77rem; color:var(--text-muted); margin-top:0.12rem; }
+
+    .avatar-row {
+      display:flex; align-items:center; gap:1.2rem; margin-bottom:1.5rem;
+      padding:1rem 1.2rem; background:rgba(16,185,96,0.05);
+      border:1px solid rgba(16,185,96,0.15); border-radius:10px;
+    }
+    .avatar-xl {
+      width:56px; height:56px; border-radius:50%;
+      background:linear-gradient(135deg,var(--green),#0D8847);
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.3rem; font-weight:700; flex-shrink:0;
+      box-shadow:0 0 0 3px rgba(16,185,96,0.2);
+    }
+
+    .unique-features {
+      background:linear-gradient(135deg,rgba(16,185,96,0.06),rgba(59,130,246,0.04));
+      border:1px solid rgba(16,185,96,0.15);
+      border-radius:var(--radius-lg); padding:1.8rem 2rem; margin-bottom:1.2rem;
+    }
+    .feature-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; margin-top:1.2rem; }
+    @media(max-width:600px){ .feature-grid{ grid-template-columns:1fr; } }
+    .feature-item {
+      background:rgba(255,255,255,0.03); border:1px solid var(--border);
+      border-radius:10px; padding:0.9rem 1rem;
+      transition:border-color 0.2s;
+    }
+    .feature-item:hover { border-color:var(--border-hi); }
+    .feature-name { font-size:0.83rem; font-weight:700; color:var(--text); margin-bottom:0.2rem; }
+    .feature-desc { font-size:0.76rem; color:var(--text-muted); line-height:1.5; }
+    .feature-badge {
+      display:inline-block; font-size:0.65rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:0.06em;
+      padding:0.12rem 0.5rem; border-radius:20px;
+      background:var(--green-dim); color:var(--green);
+      border:1px solid rgba(16,185,96,0.2);
+      margin-bottom:0.4rem;
+    }
+    .vs-table { width:100%; border-collapse:collapse; font-size:0.82rem; margin-top:1rem; }
+    .vs-table th { text-align:left; padding:0.5rem 0.8rem; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); border-bottom:1px solid var(--border); }
+    .vs-table td { padding:0.65rem 0.8rem; border-bottom:1px solid rgba(255,255,255,0.03); }
+    .vs-table tr:last-child td { border-bottom:none; }
+    .check { color:var(--green); font-weight:700; }
+    .cross { color:var(--text-dim); }
+
+    .btn-row { display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1.2rem; }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <div class="logo">Retail<span>AI</span></div>
+  <div class="nav-links">
+    <a href="{{ url_for('home') }}">Dashboard</a>
+    <a href="{{ url_for('dashboard') }}">Inventory</a>
+    <a href="{{ url_for('analytics') }}">Analytics</a>
+    <a href="{{ url_for('forecasting_page') }}">Forecasting</a>
+    <div class="nav-divider"></div>
+    <a href="{{ url_for('settings') }}" class="active">Settings</a>
+    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    <div class="user-avatar" title="{{ user }}">{{ initials }}</div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Settings</h1>
+    <p>Manage your account, model configuration, and system preferences</p>
+  </div>
+
+  <div class="settings-layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-section-label">Account</div>
+      <div class="sidebar-item active" onclick="show('profile',this)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        Profile
+      </div>
+      <div class="sidebar-item" onclick="show('notifications',this)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        Notifications
+      </div>
+      <div class="sidebar-sep"></div>
+      <div class="sidebar-section-label">AI Engine</div>
+      <div class="sidebar-item" onclick="show('model',this)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+        Forecast Model
+      </div>
+      <div class="sidebar-item" onclick="show('inventory',this)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        Inventory Rules
+      </div>
+      <div class="sidebar-sep"></div>
+      <div class="sidebar-section-label">System</div>
+      <div class="sidebar-item" onclick="show('unique',this)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        What Makes Us Unique
+      </div>
+      <div class="sidebar-item" onclick="show('security',this)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        Security
+      </div>
+      <div class="sidebar-sep"></div>
+      <div class="sidebar-item sidebar-danger" onclick="window.location=this.dataset.href" data-href="{{ url_for('logout') }}">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        Logout
+      </div>
+    </div>
+
+    <!-- Panels -->
+    <div>
+
+      <!-- PROFILE -->
+      <div class="panel active" id="panel-profile">
+        <div class="panel-card">
+          <div class="panel-title">Profile Information</div>
+          <div class="panel-sub">Your account identity and preferences</div>
+          <div class="avatar-row">
+            <div class="avatar-xl">{{ initials }}</div>
+            <div>
+              <div style="font-weight:700;font-size:1rem;color:var(--text)">{{ user }}</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.15rem">Inventory Manager · RetailAI Platform</div>
+              <div style="display:flex;gap:0.5rem;margin-top:0.6rem;">
+                <span class="badge badge-green">Active</span>
+                <span class="badge badge-blue">Manager</span>
+              </div>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>Display Name</label><input value="{{ user }}" placeholder="Your name"></div>
+            <div class="field"><label>Role</label><input value="Inventory Manager" readonly></div>
+            <div class="field"><label>Email</label><input type="email" placeholder="email@company.com"></div>
+            <div class="field"><label>Timezone</label>
+              <select>
+                <option>UTC+05:30 — India Standard Time</option>
+                <option>UTC+00:00 — Greenwich Mean Time</option>
+                <option>UTC-05:00 — Eastern Standard Time</option>
+                <option>UTC-08:00 — Pacific Standard Time</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="toast('Profile saved successfully')">Save Changes</button>
+            <button class="btn-ghost">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTIFICATIONS -->
+      <div class="panel" id="panel-notifications">
+        <div class="panel-card">
+          <div class="panel-title">Notification Preferences</div>
+          <div class="panel-sub">Control which AI-generated alerts you receive</div>
+          <div class="toggle-row">
+            <div><div class="tr-label">Critical Stock Alerts</div><div class="tr-sub">Instant alert when inventory drops below 3-day threshold</div></div>
+            <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="tr-label">Low Stock Warnings</div><div class="tr-sub">Alert when products reach the 3–7 day level</div></div>
+            <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="tr-label">Demand Surge Detection</div><div class="tr-sub">AI notifies when unusual demand spikes are detected</div></div>
+            <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="tr-label">Weekly AI Summary</div><div class="tr-sub">Digest of forecast accuracy and inventory health every Monday</div></div>
+            <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="tr-label">Model Drift Alerts</div><div class="tr-sub">Notify when ARIMA/XGBoost accuracy drops significantly</div></div>
+            <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="btn-row"><button class="btn-primary" onclick="toast('Notification preferences saved')">Save Preferences</button></div>
+        </div>
+      </div>
+
+      <!-- FORECAST MODEL -->
+      <div class="panel" id="panel-model">
+        <div class="panel-card">
+          <div class="panel-title">Forecast Model Configuration</div>
+          <div class="panel-sub">Control how RetailAI's dual-model engine runs and selects predictions</div>
+          <div style="background:var(--green-dim);border:1px solid rgba(16,185,96,0.2);border-radius:10px;padding:0.9rem 1rem;margin-bottom:1.2rem;font-size:0.82rem;color:var(--text-muted);">
+            <strong style="color:var(--green)">Auto Selection Active</strong> — The engine runs both ARIMA and XGBoost on 30-day holdout and picks the model with the lowest MAE. This happens per store × product combination.
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>Forecast Horizon (days)</label><input type="number" value="7" min="1" max="30"></div>
+            <div class="field"><label>Model Selection</label>
+              <select>
+                <option>Auto (Best of ARIMA + XGBoost)</option>
+                <option>ARIMA Only</option>
+                <option>XGBoost Only</option>
+              </select>
+            </div>
+            <div class="field"><label>Safety Stock Confidence</label>
+              <select>
+                <option>95% (z = 1.65) — Recommended</option>
+                <option>90% (z = 1.28)</option>
+                <option>99% (z = 2.33)</option>
+              </select>
+            </div>
+            <div class="field"><label>Lead Time (days)</label><input type="number" value="7" min="1" max="60"></div>
+          </div>
+          <div class="toggle-row">
+            <div><div class="tr-label">Auto-retrain on New Data</div><div class="tr-sub">Re-fit models when new CSV data is loaded</div></div>
+            <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="btn-row"><button class="btn-primary" onclick="toast('Model configuration updated')">Save Configuration</button></div>
+        </div>
+      </div>
+
+      <!-- INVENTORY RULES -->
+      <div class="panel" id="panel-inventory">
+        <div class="panel-card">
+          <div class="panel-title">Inventory Classification Rules</div>
+          <div class="panel-sub">Define the thresholds that determine Critical / Low Stock / Optimal status</div>
+          <div class="field-grid">
+            <div class="field"><label>Critical Threshold (days of stock)</label><input type="number" value="3" min="1"></div>
+            <div class="field"><label>Low Stock Threshold (days of stock)</label><input type="number" value="7" min="1"></div>
+            <div class="field"><label>Reorder Safety Buffer (%)</label><input type="number" value="20" min="0" max="100"></div>
+            <div class="field"><label>Default Category Filter</label>
+              <select>
+                <option>All Categories</option>
+                <option>Groceries</option>
+                <option>Electronics</option>
+                <option>Clothing</option>
+                <option>Furniture</option>
+                <option>Toys</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row"><button class="btn-primary" onclick="toast('Inventory rules updated')">Save Rules</button></div>
+        </div>
+      </div>
+
+      <!-- WHAT MAKES US UNIQUE -->
+      <div class="panel" id="panel-unique">
+        <div class="unique-features">
+          <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--green);font-weight:700;margin-bottom:0.5rem;">RetailAI Differentiators</div>
+          <div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:0.3rem;">What Sets Us Apart From Existing Inventory Tools</div>
+          <div style="font-size:0.83rem;color:var(--text-muted);">Most inventory systems are rule-based or use a single fixed model. RetailAI is different — here's how.</div>
+
+          <div class="feature-grid">
+            <div class="feature-item">
+              <div class="feature-badge">Unique</div>
+              <div class="feature-name">Dual-Model Auto Selection</div>
+              <div class="feature-desc">Runs ARIMA and XGBoost in parallel per store×product, compares on a 30-day holdout, and selects the best automatically. No other open retail tool does this out-of-the-box.</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-badge">Unique</div>
+              <div class="feature-name">Per-SKU Safety Stock Calc</div>
+              <div class="feature-desc">Safety stock is computed individually from the forecast's variance (std × 1.65) rather than using a flat global buffer. This adapts to each product's demand volatility.</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-badge">Novel</div>
+              <div class="feature-name">Demand-Velocity Classification</div>
+              <div class="feature-desc">Status (Critical/Low/Optimal) is derived from days-of-stock-remaining at current sales velocity — not a fixed unit count. Gives a time-aware signal instead of a static threshold.</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-badge">Novel</div>
+              <div class="feature-name">Multi-Feature XGBoost Forecast</div>
+              <div class="feature-desc">XGBoost uses 11 features including lag-1, lag-7, rolling means, competitor pricing, discount, and seasonality — making it context-aware unlike pure time-series models.</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-badge">Design</div>
+              <div class="feature-name">Zero-Latency Dashboard</div>
+              <div class="feature-desc">Dashboard and analytics pages compute all KPIs with pure pandas in &lt;0.1s. ML models only run on-demand via the Forecasting page — no blocking page loads.</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-badge">UX</div>
+              <div class="feature-name">Insight-Driven Forecasting UI</div>
+              <div class="feature-desc">The forecasting page doesn't just show numbers — it generates natural-language AI insights (trend direction, variability, peak alerts) from the data automatically.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">RetailAI vs Existing Tools</div>
+          <div class="panel-sub">How this system compares to widely-used inventory and forecasting platforms</div>
+          <table class="vs-table">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>RetailAI</th>
+                <th>Excel/Sheets</th>
+                <th>Zoho Inventory</th>
+                <th>QuickBooks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>AI Demand Forecast</td><td class="check">✓ ARIMA + XGBoost</td><td class="cross">✗ Manual</td><td class="cross">✗ None</td><td class="cross">✗ None</td></tr>
+              <tr><td>Auto Model Selection</td><td class="check">✓ Per SKU</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Dynamic Safety Stock</td><td class="check">✓ Variance-based</td><td class="cross">✗ Manual</td><td class="cross">✗ Fixed %</td><td class="cross">✗ Fixed %</td></tr>
+              <tr><td>Days-of-Stock Status</td><td class="check">✓ Velocity-aware</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Multi-store Dashboard</td><td class="check">✓ Real-time</td><td class="cross">✗ Manual</td><td class="check">✓ Basic</td><td class="check">✓ Basic</td></tr>
+              <tr><td>Feature-enriched ML</td><td class="check">✓ 11 features</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Open / Customisable</td><td class="check">✓ Full source</td><td class="check">✓</td><td class="cross">✗ SaaS</td><td class="cross">✗ SaaS</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECURITY -->
+      <div class="panel" id="panel-security">
+        <div class="panel-card">
+          <div class="panel-title">Security</div>
+          <div class="panel-sub">Manage your password and session settings</div>
+          <div class="field-grid">
+            <div class="field"><label>Current Password</label><input type="password" placeholder="••••••••"></div>
+            <div class="field"><label>New Password</label><input type="password" placeholder="••••••••"></div>
+            <div class="field"><label>Confirm New Password</label><input type="password" placeholder="••••••••"></div>
+          </div>
+          <div class="toggle-row">
+            <div><div class="tr-label">Session Timeout (30 min)</div><div class="tr-sub">Auto-logout after inactivity</div></div>
+            <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="toast('Password updated successfully')">Update Password</button>
+            <button class="btn-danger" onclick="window.location=this.dataset.href" data-href="{{ url_for('logout') }}">Sign Out &amp; Logout</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="toast-dot"></span><span id="toast-msg"></span></div>
+
+<script>
+  function show(name, el) {
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item').forEach(s=>s.classList.remove('active'));
+    document.getElementById('panel-'+name).classList.add('active');
+    el.classList.add('active');
+  }
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2800);
+  }
+</script>
+</body>
+</html>

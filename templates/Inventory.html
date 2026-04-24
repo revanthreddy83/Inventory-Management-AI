@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetailAI - Store Inventory</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/retailai.css') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', sans-serif;
+            background: #1C1C1E;
+            color: #F2F2F2;
+            line-height: 1.6;
+        }
+
+        .nav {
+            background: rgba(42, 42, 44, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1.2rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(15, 169, 88, 0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.75rem;
+            font-weight: 400;
+            letter-spacing: -0.5px;
+        }
+
+        .logo span {
+            color: #10B960;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #F2F2F2;
+            text-decoration: none;
+            font-weight: 400;
+            font-size: 0.95rem;
+            transition: color 0.3s ease;
+            opacity: 0.85;
+        }
+
+        .nav-links a:hover {
+            color: #10B960;
+            opacity: 1;
+        }
+
+        .nav-links a.active {
+            color: #10B960;
+            opacity: 1;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10B960, #0D8847);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .user-avatar:hover {
+            transform: scale(1.05);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2.5rem 3rem;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.875rem;
+            color: rgba(242, 242, 242, 0.5);
+            margin-bottom: 0.75rem;
+        }
+
+        .breadcrumb a {
+            color: rgba(242, 242, 242, 0.5);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .breadcrumb a:hover {
+            color: #10B960;
+        }
+
+        .breadcrumb span {
+            margin: 0 0.5rem;
+        }
+
+        .header h1 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 2.25rem;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: rgba(242, 242, 242, 0.6);
+            font-size: 1rem;
+            font-weight: 300;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: #2A2A2C;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(58, 58, 60, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+            border-color: rgba(15, 169, 88, 0.3);
+        }
+
+        .summary-label {
+            font-size: 0.8rem;
+            color: rgba(242, 242, 242, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .summary-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #F2F2F2;
+        }
+
+        .summary-value.critical {
+            color: #FF453A;
+        }
+
+        .summary-value.warning {
+            color: #FFD60A;
+        }
+
+        .summary-value.optimal {
+            color: #10B960;
+        }
+
+        .card {
+            background: #2A2A2C;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(58, 58, 60, 0.5);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: -0.3px;
+        }
+
+        .card-subtitle {
+            font-size: 0.875rem;
+            color: rgba(242, 242, 242, 0.5);
+            margin-top: 0.25rem;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .filter-select {
+            padding: 0.65rem 1rem;
+            background: rgba(58, 58, 60, 0.3);
+            border: 1px solid rgba(58, 58, 60, 0.5);
+            border-radius: 8px;
+            color: #F2F2F2;
+            font-size: 0.9rem;
+            font-family: 'IBM Plex Sans', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .filter-select:hover {
+            border-color: rgba(15, 169, 88, 0.3);
+        }
+
+        .filter-select:focus {
+            border-color: #10B960;
+            box-shadow: 0 0 0 3px rgba(15, 169, 88, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        thead {
+            background: rgba(58, 58, 60, 0.3);
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem 1.25rem;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(242, 242, 242, 0.7);
+            border-bottom: 1px solid rgba(58, 58, 60, 0.5);
+        }
+
+        th:first-child {
+            border-radius: 12px 0 0 0;
+        }
+
+        th:last-child {
+            border-radius: 0 12px 0 0;
+        }
+
+        td {
+            padding: 1.1rem 1.25rem;
+            border-bottom: 1px solid rgba(58, 58, 60, 0.3);
+            font-size: 0.95rem;
+        }
+
+        tr:hover td {
+            background: rgba(58, 58, 60, 0.2);
+        }
+
+        tr:last-child td:first-child {
+            border-radius: 0 0 0 12px;
+        }
+
+        tr:last-child td:last-child {
+            border-radius: 0 0 12px 0;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.35rem 0.9rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .status-optimal {
+            background: rgba(15, 169, 88, 0.15);
+            color: #10B960;
+        }
+
+        .status-low {
+            background: rgba(255, 214, 10, 0.15);
+            color: #FFD60A;
+        }
+
+        .status-critical {
+            background: rgba(255, 69, 58, 0.15);
+            color: #FF453A;
+        }
+
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        .trend-up {
+            color: #10B960;
+        }
+
+        .trend-down {
+            color: #FF453A;
+        }
+
+        .trend-stable {
+            color: rgba(242, 242, 242, 0.6);
+        }
+
+        .action-link {
+            color: #10B960;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: color 0.3s ease;
+        }
+
+        .action-link:hover {
+            color: #12C96B;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                padding: 2rem 2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav {
+                padding: 1rem 1.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .container {
+                padding: 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.75rem 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="logo">Retail<span>AI</span></div>
+        <div class="nav-links">
+            <a href="{{ url_for('home') }}">Dashboard</a>
+            <a href="{{ url_for('dashboard') }}" class="active">Inventory</a>
+            <a href="{{ url_for('analytics') }}">Analytics</a>
+            <a href="{{ url_for('forecasting_page') }}">Forecasting</a>
+            <a href="#">Settings</a>
+            <div class="user-avatar" title="{{ user }}">{{ initials }}</div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>Store Inventory Status</h1>
+            <p>Real-time stock levels across all retail locations · Demand-velocity based classification</p>
+        </div>
+
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="summary-label">Total Stores</div>
+                <div class="summary-value">{{ total_stores }}</div>
+
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Optimal Stock</div>
+                <div class="summary-value optimal">{{ optimal }}</div>
+
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Low Stock</div>
+                <div class="summary-value warning">{{ low_stock }}</div>
+
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Critical</div>
+                <div class="summary-value critical">{{ critical }}</div>
+
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Store-wise Inventory</div>
+                    <div class="card-subtitle">Updated 5 minutes ago</div>
+                </div>
+                <div class="filter-group">
+                    <select class="filter-select">
+                        <option>Groceries</option>
+                        <option>Electronics</option>
+                        <option>Apparel</option>
+                        <option>Home & Living</option>
+                    </select>
+                    <select class="filter-select">
+                        <option>All Regions</option>
+                        <option>North</option>
+                        <option>South</option>
+                        <option>East</option>
+                        <option>West</option>
+                    </select>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Store ID</th>
+                        <th>Region</th>
+                        <th>Current Stock</th>
+                        <th>Avg Daily Sales</th>
+                        <th>Demand Trend</th>
+                        <th>Status</th>
+                        <th>Suggested Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>STR-001</td>
+                        <td>North</td>
+                        <td>2,847 units</td>
+                        <td>142 units/day</td>
+                        <td><span class="trend-indicator trend-up">↑ 12%</span></td>
+                        <td><span class="status-badge status-optimal">Optimal</span></td>
+                        <td><a href="#" class="action-link">Monitor</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-002</td>
+                        <td>South</td>
+                        <td>1,923 units</td>
+                        <td>168 units/day</td>
+                        <td><span class="trend-indicator trend-up">↑ 18%</span></td>
+                        <td><span class="status-badge status-optimal">Optimal</span></td>
+                        <td><a href="#" class="action-link">Monitor</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-003</td>
+                        <td>East</td>
+                        <td>845 units</td>
+                        <td>95 units/day</td>
+                        <td><span class="trend-indicator trend-stable">→ 2%</span></td>
+                        <td><span class="status-badge status-low">Low Stock</span></td>
+                        <td><a href="#" class="action-link">Reorder 1,200 units</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-004</td>
+                        <td>West</td>
+                        <td>3,156 units</td>
+                        <td>124 units/day</td>
+                        <td><span class="trend-indicator trend-up">↑ 8%</span></td>
+                        <td><span class="status-badge status-optimal">Optimal</span></td>
+                        <td><a href="#" class="action-link">Monitor</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-005</td>
+                        <td>North</td>
+                        <td>412 units</td>
+                        <td>187 units/day</td>
+                        <td><span class="trend-indicator trend-up">↑ 24%</span></td>
+                        <td><span class="status-badge status-critical">Critical</span></td>
+                        <td><a href="#" class="action-link">Urgent: Reorder 2,500 units</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-006</td>
+                        <td>South</td>
+                        <td>2,234 units</td>
+                        <td>156 units/day</td>
+                        <td><span class="trend-indicator trend-stable">→ 1%</span></td>
+                        <td><span class="status-badge status-optimal">Optimal</span></td>
+                        <td><a href="#" class="action-link">Monitor</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-007</td>
+                        <td>East</td>
+                        <td>1,567 units</td>
+                        <td>143 units/day</td>
+                        <td><span class="trend-indicator trend-up">↑ 15%</span></td>
+                        <td><span class="status-badge status-optimal">Optimal</span></td>
+                        <td><a href="#" class="action-link">Monitor</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-008</td>
+                        <td>West</td>
+                        <td>678 units</td>
+                        <td>112 units/day</td>
+                        <td><span class="trend-indicator trend-down">↓ 5%</span></td>
+                        <td><span class="status-badge status-low">Low Stock</span></td>
+                        <td><a href="#" class="action-link">Reorder 1,500 units</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-009</td>
+                        <td>North</td>
+                        <td>2,945 units</td>
+                        <td>138 units/day</td>
+                        <td><span class="trend-indicator trend-stable">→ 3%</span></td>
+                        <td><span class="status-badge status-optimal">Optimal</span></td>
+                        <td><a href="#" class="action-link">Monitor</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-010</td>
+                        <td>South</td>
+                        <td>523 units</td>
+                        <td>178 units/day</td>
+                        <td><span class="trend-indicator trend-up">↑ 21%</span></td>
+                        <td><span class="status-badge status-critical">Critical</span></td>
+                        <td><a href="#" class="action-link">Urgent: Reorder 2,200 units</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-011</td>
+                        <td>East</td>
+                        <td>1,892 units</td>
+                        <td>145 units/day</td>
+                        <td><span class="trend-indicator trend-up">↑ 9%</span></td>
+                        <td><span class="status-badge status-optimal">Optimal</span></td>
+                        <td><a href="#" class="action-link">Monitor</a></td>
+                    </tr>
+                    <tr>
+                        <td>STR-012</td>
+                        <td>West</td>
+                        <td>754 units</td>
+                        <td>89 units/day</td>
+                        <td><span class="trend-indicator trend-stable">→ 0%</span></td>
+                        <td><span class="status-badge status-low">Low Stock</span></td>
+                        <td><a href="#" class="action-link">Reorder 1,100 units</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <h2>Inventory Dataset</h2>
+<table id="inventoryTable">
+  <thead>
+    <tr>
+      <th>Product</th>
+      <th>Quantity</th>
+      <th>Price</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- DATA WILL COME HERE -->
+  </tbody>
+</table>
+
+<script src="inventory.js"></script>
+
+</body>
+</html>

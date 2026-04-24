@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RetailAI — Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/retailai.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<nav class="nav">
+  <div class="logo">Retail<span>AI</span></div>
+  <div class="nav-links">
+    <a href="{{ url_for('home') }}" class="active">Dashboard</a>
+    <a href="{{ url_for('dashboard') }}">Inventory</a>
+    <a href="{{ url_for('analytics') }}">Analytics</a>
+    <a href="{{ url_for('forecasting_page') }}">Forecasting</a>
+    <div class="nav-divider"></div>
+    <a href="{{ url_for('settings') }}">Settings</a>
+    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    <div class="user-avatar" title="{{ user }}">{{ initials }}</div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Welcome back, <strong style="color:var(--text)">{{ user }}</strong> · Real-time intelligence across all 5 stores · AI-powered · Updated live</p>
+  </div>
+
+  <!-- Unique Feature Banner -->
+  <div style="background:linear-gradient(135deg,rgba(16,185,96,0.08),rgba(59,130,246,0.06));border:1px solid rgba(16,185,96,0.18);border-radius:14px;padding:1rem 1.5rem;margin-bottom:1.8rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.07em;">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;"></span>
+      AI Engine Active
+    </div>
+    <div style="height:16px;width:1px;background:var(--border);"></div>
+    <span style="font-size:0.82rem;color:var(--text-muted);">Auto model selection: ARIMA vs XGBoost · Safety stock at 95% confidence · 7-day rolling forecast</span>
+    <a href="{{ url_for('forecasting_page') }}" style="margin-left:auto;font-size:0.8rem;color:var(--green);text-decoration:none;font-weight:600;">Run Forecast →</a>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Units Sold</div>
+      <div class="kpi-value green">{{ total_units }}</div>
+      <div class="kpi-change up">↑ All-time across 5 stores</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg Daily Sales</div>
+      <div class="kpi-value">{{ avg_daily }}</div>
+      <div class="kpi-change">All stores combined</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Current Inventory</div>
+      <div class="kpi-value">{{ total_inv }}</div>
+      <div class="kpi-change">Units in stock now</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Stores</div>
+      <div class="kpi-value green">{{ num_stores }}</div>
+      <div class="kpi-change up">All regions operational</div>
+    </div>
+  </div>
+
+  <!-- Row 1: Monthly trend + Alerts -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:1.2rem;margin-bottom:1.2rem;">
+    <div class="card">
+      <div class="card-title">Monthly Sales Trend</div>
+      <div class="card-sub">Total units sold per month · Last 12 months · All stores</div>
+      <div class="canvas-wrap" style="height:250px"><canvas id="monthlyChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">AI Stock Alerts</div>
+      <div class="card-sub">Live anomaly detection</div>
+      <div class="alert-item red">
+        <div class="alert-title">83 Products — Critical</div>
+        <div class="alert-desc">Less than 3 days inventory remaining at current velocity</div>
+      </div>
+      <div class="alert-item amber">
+        <div class="alert-title">17 Products — Low Stock</div>
+        <div class="alert-desc">3–7 days remaining, reorder recommended</div>
+      </div>
+      <div class="alert-item green">
+        <div class="alert-title">S003 — Top Performer</div>
+        <div class="alert-desc">Highest units sold across all stores this period</div>
+      </div>
+      <div class="alert-item" style="border-left-color:var(--blue);background:var(--blue-dim);">
+        <div class="alert-title">Furniture &amp; Groceries Lead</div>
+        <div class="alert-desc">Top categories by volume — consider priority replenishment</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Weekly + Category + Store -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.2rem;margin-bottom:1.2rem;">
+    <div class="card">
+      <div class="card-title">Weekly Sales</div>
+      <div class="card-sub">Last 13 weeks · Peak week highlighted</div>
+      <div class="canvas-wrap" style="height:200px"><canvas id="weeklyChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Sales by Category</div>
+      <div class="card-sub">Share of total units sold</div>
+      <div class="canvas-wrap" style="height:200px"><canvas id="categoryChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Sales by Store</div>
+      <div class="card-sub">Total units sold per location</div>
+      <div class="canvas-wrap" style="height:200px"><canvas id="storeChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Row 3: Top Products -->
+  <div class="card">
+    <div class="card-title">Top Products by Volume</div>
+    <div class="card-sub">Highest-selling products · Real data from your CSV dataset</div>
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>#</th><th>Product</th><th>Category</th><th>Units Sold</th><th>Status</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="color:var(--text-muted)">01</td><td><strong>P0015</strong></td><td>Furniture</td><td>112,139</td><td><span class="badge badge-red">Critical</span></td><td style="color:var(--green);font-size:0.8rem;cursor:pointer;">→ Forecast</td></tr>
+        <tr><td style="color:var(--text-muted)">02</td><td><strong>P0014</strong></td><td>Toys</td><td>111,071</td><td><span class="badge badge-red">Critical</span></td><td style="color:var(--green);font-size:0.8rem;cursor:pointer;">→ Forecast</td></tr>
+        <tr><td style="color:var(--text-muted)">03</td><td><strong>P0020</strong></td><td>Toys</td><td>110,815</td><td><span class="badge badge-amber">Low Stock</span></td><td style="color:var(--green);font-size:0.8rem;cursor:pointer;">→ Forecast</td></tr>
+        <tr><td style="color:var(--text-muted)">04</td><td><strong>P0016</strong></td><td>Groceries</td><td>110,560</td><td><span class="badge badge-red">Critical</span></td><td style="color:var(--green);font-size:0.8rem;cursor:pointer;">→ Forecast</td></tr>
+        <tr><td style="color:var(--text-muted)">05</td><td><strong>P0009</strong></td><td>Clothing</td><td>107,734</td><td><span class="badge badge-amber">Low Stock</span></td><td style="color:var(--green);font-size:0.8rem;cursor:pointer;">→ Forecast</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @media(max-width:1100px){ .row2{grid-template-columns:1fr 1fr!important;} }
+  @media(max-width:800px){ div[style*="grid-template-columns:2fr"]{grid-template-columns:1fr!important;} div[style*="grid-template-columns:1fr 1fr 1fr"]{grid-template-columns:1fr!important;} }
+</style>
+
+<script>
+  Chart.defaults.color = 'rgba(232,234,240,0.45)';
+  Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+  Chart.defaults.font.size = 11;
+  const G = 'rgba(255,255,255,0.04)';
+
+  const mLabels = {{ monthly_labels | tojson }};
+  const mValues = {{ monthly_values | tojson }};
+  const wLabels = {{ weekly_labels  | tojson }};
+  const wValues = {{ weekly_values  | tojson }};
+  const cLabels = {{ cat_labels     | tojson }};
+  const cValues = {{ cat_values     | tojson }};
+  const sLabels = {{ store_labels   | tojson }};
+  const sValues = {{ store_values   | tojson }};
+
+  // Monthly
+  new Chart(document.getElementById('monthlyChart'),{
+    type:'line',
+    data:{
+      labels: mLabels.map(l=>{ const[y,m]=l.split('-'); return new Date(y,m-1).toLocaleString('default',{month:'short',year:'2-digit'}); }),
+      datasets:[{
+        label:'Units Sold', data:mValues,
+        borderColor:'#10B960', backgroundColor:'rgba(16,185,96,0.08)',
+        fill:true, tension:0.4, pointRadius:3, pointBackgroundColor:'#10B960', borderWidth:2
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:G},ticks:{maxTicksLimit:6}},y:{grid:{color:G},ticks:{callback:v=>(v/1000).toFixed(0)+'K'}}}}
+  });
+
+  // Weekly
+  const wPeak = Math.max(...wValues);
+  new Chart(document.getElementById('weeklyChart'),{
+    type:'bar',
+    data:{
+      labels: wLabels.map(l=>{ const d=new Date(l); return d.toLocaleString('default',{month:'short',day:'numeric'}); }),
+      datasets:[{
+        label:'Units',data:wValues,borderRadius:4,
+        backgroundColor: wValues.map(v=>v===wPeak?'rgba(245,158,11,0.85)':'rgba(16,185,96,0.6)')
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'transparent'},ticks:{maxTicksLimit:6}},y:{grid:{color:G},ticks:{callback:v=>(v/1000).toFixed(0)+'K'}}}}
+  });
+
+  // Category donut
+  const cPalette = ['#10B960','#3B82F6','#8B5CF6','#F59E0B','#EF4444'];
+  new Chart(document.getElementById('categoryChart'),{
+    type:'doughnut',
+    data:{
+      labels:cLabels,
+      datasets:[{data:cValues,backgroundColor:cPalette,borderColor:'#111214',borderWidth:3,hoverOffset:5}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'bottom',labels:{padding:8,boxWidth:10,font:{size:10}}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${(ctx.parsed/1000).toFixed(0)}K`}}}}
+  });
+
+  // Store horizontal bar
+  const sPalette = ['rgba(16,185,96,0.75)','rgba(59,130,246,0.75)','rgba(245,158,11,0.75)','rgba(139,92,246,0.75)','rgba(239,68,68,0.7)'];
+  new Chart(document.getElementById('storeChart'),{
+    type:'bar',
+    data:{
+      labels:sLabels,
+      datasets:[{label:'Total Units',data:sValues,backgroundColor:sPalette,borderRadius:5}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:G},ticks:{callback:v=>(v/1000000).toFixed(1)+'M'}},y:{grid:{color:'transparent'}}}}
+  });
+</script>
+</body>
+</html>
